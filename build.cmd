@@ -99,7 +99,7 @@ REM //---------- Build rpclib ------------
 ECHO Starting cmake to build rpclib...
 IF NOT EXIST external\rpclib\%RPC_VERSION_FOLDER%\build mkdir external\rpclib\%RPC_VERSION_FOLDER%\build
 cd external\rpclib\%RPC_VERSION_FOLDER%\build
-cmake -G"Visual Studio 17 2022" ..
+cmake -G"Visual Studio 18 2026" -T v143 ..
 
 if "%buildMode%" == "" (
 cmake --build . 
