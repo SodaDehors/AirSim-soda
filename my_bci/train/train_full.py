@@ -28,6 +28,7 @@ from braindecode.preprocessing import create_windows_from_events
 from braindecode.models import EEGNetv4
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(SCRIPT_DIR, "..", "models")
 
 
 def load_all_subjects():
@@ -178,7 +179,7 @@ def main():
             patience = 0
             torch.save(
                 model.state_dict(),
-                os.path.join(SCRIPT_DIR, "eegnet_full_best.pth"),
+                os.path.join(MODEL_DIR, "eegnet_full_best.pth"),
             )
             print(f"    新最佳模型 -> 保存 ({best_test_acc:.1f}%)")
         else:
@@ -194,7 +195,7 @@ def main():
     print(f"\n 训练完成 — 最佳测试准确率: {best_test_acc:.1f}%")
     torch.save(
         model.state_dict(),
-        os.path.join(SCRIPT_DIR, "eegnet_full_final.pth"),
+        os.path.join(MODEL_DIR, "eegnet_full_final.pth"),
     )
     print(f"  最终模型: eegnet_full_final.pth")
     print(f"  最佳模型: eegnet_full_best.pth")

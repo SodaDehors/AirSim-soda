@@ -60,7 +60,7 @@ except ImportError:
 # ==========================================
 # 可调参数
 # ==========================================
-MODEL_PATH = os.path.join(SCRIPT_DIR, "eegnet_best_model.pth")  # 最佳模型路径
+MODEL_PATH = os.path.join(SCRIPT_DIR, "..", "models", "cross_subject.pth")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 自动选 GPU/CPU
 
 SPEED = 1.0              # 水平飞行速度 (m/s)，演示用

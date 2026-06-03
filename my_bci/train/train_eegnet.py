@@ -23,6 +23,7 @@ from braindecode.preprocessing import create_windows_from_events
 from braindecode.models import EEGNetv4
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(MODEL_DIR, "..", "models")
 
 # ==========================================
 # 配置：改这里切换 单被试 / 全被试
@@ -154,7 +155,7 @@ def main():
         if test_acc > best_test_acc:
             best_test_acc = test_acc
             patience = 0
-            torch.save(model.state_dict(), os.path.join(SCRIPT_DIR, "eegnet_best_model.pth"))
+            torch.save(model.state_dict(), os.path.join(MODEL_DIR, "eegnet_best_model.pth"))
             print(f"    新最佳 ({best_test_acc:.1f}%), 已保存")
         else:
             patience += 1
@@ -164,7 +165,7 @@ def main():
             break
 
     print(f"\n 完成 — 最佳: {best_test_acc:.1f}%")
-    torch.save(model.state_dict(), os.path.join(SCRIPT_DIR, "eegnet_model.pth"))
+    torch.save(model.state_dict(), os.path.join(MODEL_DIR, "eegnet_model.pth"))
 
 
 if __name__ == "__main__":

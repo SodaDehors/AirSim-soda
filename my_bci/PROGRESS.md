@@ -14,16 +14,30 @@
 
 ---
 
-## 二、文件清单
+## 二、目录结构
 
-| 文件 | 功能 | 状态 |
-|------|------|------|
-| `train_bci.py` | 训练 EEGNet 模型，分类 4 种运动想象 | ✅ 完成，支持跨被试/被试内切换 |
-| `bci_fly.py` | 加载模型 → 数据集推理 → 控制 AirSim | ✅ 完成，6 方向控制 (4 脑电 + 2 键盘) |
-| `fpv_control.py` | 键盘+鼠标手动 FPV 飞行 | ✅ 完成，灵敏度已校准 |
-| `bci_test.py` | 数据集加载测试 (开发调试用) | 📝 保留备用 |
-| `eegnet_best_model.pth` | 训练出的最佳模型权重 | ✅ 已生成 (跨被试 55.0%) |
-| `eegnet_model.pth` | 最后一个 epoch 的模型 (可能过拟合) | 📝 备份 |
+```
+my_bci/
+├── .gitignore
+├── PROGRESS.md
+│
+├── train/                     ← 训练脚本
+│   ├── train_eegnet.py        ← 主训练 (跨被试, 7→2)
+│   ├── train_within.py        ← 被试内评估 (s0→s1)
+│   └── train_full.py          ← 服务器完整数据集版
+│
+├── models/                    ← 模型权重
+│   ├── cross_subject.pth      ← 跨被试最佳模型 (55.0%)
+│   └── within_s1.pth ~ s9.pth ← 被试内各人被试
+│
+├── fly/                       ← AirSim 控制
+│   ├── bci_fly.py             ← 脑电 → 无人机
+│   └── fpv_control.py         ← 键鼠手动 FPV
+│
+└── test/                      ← 测试/对比
+    ├── bci_test.py            ← 数据加载测试
+    └── compare_models.py      ← 多模型对比
+```
 
 ---
 

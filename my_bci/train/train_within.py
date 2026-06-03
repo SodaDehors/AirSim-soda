@@ -23,6 +23,7 @@ from braindecode.preprocessing import create_windows_from_events
 from braindecode.models import EEGNetv4
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(SCRIPT_DIR, "..", "models")
 
 
 def train_one_subject(subject_id, args):
@@ -89,7 +90,7 @@ def train_one_subject(subject_id, args):
         if test_acc > best_test_acc:
             best_test_acc = test_acc
             patience = 0
-            save_path = os.path.join(SCRIPT_DIR, f"eegnet_s{subject_id}_best.pth")
+            save_path = os.path.join(MODEL_DIR, f"within_s{subject_id}.pth")
             torch.save(model.state_dict(), save_path)
         else:
             patience += 1
