@@ -242,7 +242,7 @@ def main():
                   f"真实: {CLASS_NAMES[y_true]} → "
                   f"{status} 预测: {CLASS_NAMES[pred_class]} "
                   f"(置信度 {confidence:.0%})")
-            print(f"         🛸 飞行指令: {desc}")
+            print(f"          飞行指令: {desc}")
 
             execute_command(client, pred_class, confidence)
             time.sleep(HOVER_PAUSE)
@@ -251,7 +251,7 @@ def main():
                 try:
                     state = client.getMultirotorState()
                     pos = state.kinematics_estimated.position
-                    print(f"  📍 坐标: X={pos.x_val:.1f} Y={pos.y_val:.1f} Z={pos.z_val:.1f}")
+                    print(f"   坐标: X={pos.x_val:.1f} Y={pos.y_val:.1f} Z={pos.z_val:.1f}")
                 except Exception:
                     pass  # 获取状态失败则跳过，不影响主流程
 

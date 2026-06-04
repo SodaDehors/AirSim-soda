@@ -16,6 +16,20 @@
 
 ## 二、实验历史 (按时间倒序)
 
+### 2026-06-04 — SNN-EEGNet (脉冲神经网络) 首次探索 ✅
+
+**改动:** 新建 `train/train_snn.py`，用 SpikingJelly 的 LIF 脉冲神经元替换 ReLU，速率编码 EEG → 脉冲序列 → 脉冲卷积 → 膜电位投票分类。
+**依赖:** SpikingJelly (Fang et al., Science Advances 2023) — 北京大学开源 SNN 框架
+**结果:** 被试 3 最佳 **51.7%**，略超 EEGNet 同条件 (50.3%)。15K 参数，简化架构，T=8 时间步，未调参。
+**意义:** 首次验证脉冲神经元替换 ReLU 不损失性能，为后续跨被试大训练 + 更深 SNN 架构打底。导师指定的 SNN 方向已初步跑通。
+
+| 模型 | 被试 3 准确率 |
+|------|-------------|
+| 随机 | 25% |
+| EEGNet | 50.3% |
+| **SNN-EEGNet** | **51.7%** |
+| EEG-Conformer | 32.5%（小数据崩） |
+
 ### 2026-06-04 — 加论文预处理 (Chebyshev 4-40Hz + Z-score) ✅
 
 **改动:** `test/demo_conformer.py` 加入 Song 2023 论文两步预处理：
