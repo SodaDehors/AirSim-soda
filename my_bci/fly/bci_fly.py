@@ -19,7 +19,7 @@ BCI → AirSim 脑控无人机 (运动想象 4 分类 → 6 方向控制)
   所以训练代码只在测试集准确率创新高时才保存 eegnet_best_model.pth。
   eegnet_model.pth 是最后一个 epoch 的模型，大概率已经过拟合退化。
 
-【当前局限性 (导师已知)】
+【当前局限性】
   - 运动想象只有 4 类，纯脑电只能控制 4 个方向。上/下用键盘补位。
   - 单被试训练，测试准确率约 44~54%，模型有类别偏向 (偏爱预测"舌头动")。
   - SSVEP 方案可区分更多频率模式，适合扩展为纯脑电 6+ 方向控制。
@@ -43,8 +43,8 @@ import torch
 import airsim
 import threading
 from braindecode.datasets import MOABBDataset
-from braindecode.preprocessing import create_windows_from_events
-from braindecode.models import EEGNetv4
+from braindecode.preprocessing import create_windows_from_events, Preprocessor, preprocess
+from braindecode.models import EEGConformer
 
 # 确保模型文件路径始终相对于脚本所在目录，无论从哪里执行都能找到
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -60,7 +60,7 @@ except ImportError:
 # ==========================================
 # 可调参数
 # ==========================================
-MODEL_PATH = os.path.join(SCRIPT_DIR, "..", "models", "cross_subject.pth")
+MODEL_PATH = os.path.join(SCRIPT_DIR, "..", "models", "conformer_cross.pth")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 自动选 GPU/CPU
 
 SPEED = 1.0              # 水平飞行速度 (m/s)，演示用
@@ -112,34 +112,29 @@ def keyboard_thread():
 
 
 def load_model():
-    """
-    加载训练好的 EEGNet 脑电分类模型
-    参数必须和 train_bci.py 训练时完全一致：
-      in_chans=26  (22 EEG + 4 EOG = 26 通道)
-      n_classes=4  (左手/右手/脚/舌头)
-      input_window_samples=1000 (4秒 × 250Hz = 1000个采样点)
-    """
-    model = EEGNetv4(
-        in_chans=26, n_classes=4,
-        input_window_samples=1000, final_conv_length='auto'
+    """加载训练好的 EEG-Conformer（74.9% 跨被试）"""
+    model = EEGConformer(
+        n_chans=26, n_outputs=4, n_times=1000,
+        add_log_softmax=False,   # CrossEntropyLoss 不需要内置 Softmax
     ).to(DEVICE)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
-    model.eval()  # 切换到评估模式：关闭 Dropout/BatchNorm 训练行为
+    model.eval()
     return model
 
 
 def predict(model, x):
     """
-    对一条脑电数据进行推理
-    输入: x = numpy array，形状 (26, 1000) → 26 个通道 × 1000 个时间点
-    输出: (预测类别编号, Softmax 置信度)
+    推理：Z-score 归一化 → Conformer → 预测类别 + 置信度
+    预处理必须和训练时一致 (Chebyshev 4-40Hz 已在数据集加载中完成)
     """
-    with torch.no_grad():  # 不计算梯度，省显存 + 加速
-        # unsqueeze(0): (26,1000) → (1,26,1000)，增加 batch 维度
+    # Z-score 归一化（与训练预处理一致）
+    x = (x - x.mean()) / (x.std() + 1e-8)
+
+    with torch.no_grad():
         tensor = torch.tensor(x).unsqueeze(0).float().to(DEVICE)
-        output = model(tensor)  # 前向传播，得到 4 个原始分数 (logits)
-        probs = torch.softmax(output, dim=1)  # logits → 概率分布
-        confidence, pred = torch.max(probs, 1)  # 取最大概率的类别
+        output = model(tensor)
+        probs = torch.softmax(output, dim=1)
+        confidence, pred = torch.max(probs, 1)
         return pred.item(), confidence.item()
 
 
@@ -182,8 +177,9 @@ def main():
     # ==========================================
     # 步骤 2/4: 准备测试用的脑电数据
     # ==========================================
-    print("\n[2/4]  加载 BCI IV-2a 测试集...")
-    dataset = MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[3])
+    print("\n[2/4]  加载 BCI IV-2a 测试集 (Chebyshev 4-40Hz 滤波)...")
+    dataset = MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[8])
+    preprocess(dataset, [Preprocessor(fn="filter", l_freq=4, h_freq=40)])
     windows_dataset = create_windows_from_events(
         dataset, trial_start_offset_samples=0, trial_stop_offset_samples=0, preload=True
     )
