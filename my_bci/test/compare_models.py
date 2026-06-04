@@ -1,36 +1,39 @@
 """
-DeepConvNet vs EEGNet 对比脚本
-===============================
+EEG-Conformer vs EEGNet 全面对比 — 被试内评估 (全部 9 人)
+==========================================================
 
-被试内评估，先跑被试 3 快速对比，确认有提升再跑全部。
+每人 session 0 训练 → session 1 测试，保存最佳模型，汇总对比。
 """
 
 import warnings
 warnings.filterwarnings("ignore")
 
+import os
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from braindecode.datasets import MOABBDataset
 from braindecode.preprocessing import create_windows_from_events
-from braindecode.models import EEGNetv4, Deep4Net
+from braindecode.models import EEGNetv4, EEGConformer
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"设备: {DEVICE}")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(SCRIPT_DIR, "..", "models")
 
 
-def train_one(model, train_set, test_set, epochs=80, batch=16, lr=0.001):
+def train_one(ModelClass, train_set, test_set, epochs, batch, lr, save_path):
     train_loader = DataLoader(train_set, batch_size=batch, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=batch, shuffle=False)
 
     sample_x, _, _ = train_set[0]
     n_chans, n_times = sample_x.shape[0], sample_x.shape[1]
 
-    kwargs = dict(n_chans=n_chans, n_outputs=4, n_times=n_times,
-                  final_conv_length="auto")
-    if model is Deep4Net:
+    kwargs = dict(n_chans=n_chans, n_outputs=4, n_times=n_times)
+    if ModelClass is EEGNetv4:
+        kwargs["final_conv_length"] = "auto"
+    if ModelClass is EEGConformer:
         kwargs["add_log_softmax"] = False
-    model = model(**kwargs).to(DEVICE)
+    model = ModelClass(**kwargs).to(DEVICE)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
@@ -59,41 +62,54 @@ def train_one(model, train_set, test_set, epochs=80, batch=16, lr=0.001):
         if acc > best_acc:
             best_acc = acc
             patience = 0
+            torch.save(model.state_dict(), save_path)
         else:
             patience += 1
         if patience >= 25:
             break
-        if epoch % 10 == 0 or patience == 0:
-            print(f"    Epoch {epoch+1:02d}: {acc:.1f}%")
 
     return best_acc
 
 
-# 跨被试 1-7 训练 / 8-9 测试（数据量够 DeepConvNet 发挥）
-print("\n加载跨被试数据 (1-7 → 8,9)...")
-train_sets, test_sets = [], []
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+eegnet_results = {}
+conf_results = {}
+
 for sid in range(1, 10):
     ds = MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[sid])
     w = create_windows_from_events(ds, 0, 0, preload=True)
     sess = w.split("session")
     keys = sorted(sess.keys())
-    all_trials = torch.utils.data.ConcatDataset([sess[k] for k in keys])
-    if sid <= 7:
-        train_sets.append(all_trials)
-    else:
-        test_sets.append(all_trials)
+    train_set, test_set = sess[keys[0]], sess[keys[1]]
 
-train_set = torch.utils.data.ConcatDataset(train_sets)
-test_set = torch.utils.data.ConcatDataset(test_sets)
-print(f"  训练: {len(train_set)} 条, 测试: {len(test_set)} 条")
+    print(f"\n{'='*50}")
+    print(f"被试 {sid} | 训练 {len(train_set)} 条 → 测试 {len(test_set)} 条")
 
-print("\n--- EEGNet (跨被试) ---")
-eegnet_acc = train_one(EEGNetv4, train_set, test_set, batch=32)
+    print(f"\n  EEGNet...")
+    eegnet_acc = train_one(EEGNetv4, train_set, test_set,
+                           epochs=80, batch=16, lr=0.001,
+                           save_path=os.path.join(MODEL_DIR, f"within_s{sid}.pth"))
+    eegnet_results[sid] = eegnet_acc
+    print(f"    -> {eegnet_acc:.1f}%")
 
-print("\n--- DeepConvNet (跨被试) ---")
-deep_acc = train_one(Deep4Net, train_set, test_set, epochs=120, batch=32, lr=0.0005)
+    print(f"\n  EEG-Conformer...")
+    conf_acc = train_one(EEGConformer, train_set, test_set,
+                         epochs=100, batch=8, lr=0.0003,
+                         save_path=os.path.join(MODEL_DIR, f"conformer_s{sid}.pth"))
+    conf_results[sid] = conf_acc
+    print(f"    -> {conf_acc:.1f}%")
 
-print(f"\n======== 跨被试对比 ========")
-print(f"  EEGNet:      {eegnet_acc:.1f}%")
-print(f"  DeepConvNet: {deep_acc:.1f}%")
-print(f"  提升:        {deep_acc - eegnet_acc:+.1f}%")
+# 汇总
+print(f"\n{'='*50}")
+print(f"           被试内评估汇总")
+print(f"{'='*50}")
+print(f"{'被试':>5} | {'EEGNet':>8} | {'Conformer':>9} | {'提升':>6}")
+print("-" * 40)
+for sid in range(1, 10):
+    delta = conf_results[sid] - eegnet_results[sid]
+    print(f"  {sid:2d}  | {eegnet_results[sid]:7.1f}% | {conf_results[sid]:8.1f}% | {delta:+6.1f}%")
+print("-" * 40)
+avg_e = sum(eegnet_results.values()) / 9
+avg_c = sum(conf_results.values()) / 9
+print(f" 平均 | {avg_e:7.1f}% | {avg_c:8.1f}% | {avg_c-avg_e:+6.1f}%")
