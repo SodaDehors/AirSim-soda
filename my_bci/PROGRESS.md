@@ -16,6 +16,34 @@
 
 ## 二、实验历史 (按时间倒序)
 
+### 2026-06-04 — 加论文预处理 (Chebyshev 4-40Hz + Z-score) ✅
+
+**改动:** `test/demo_conformer.py` 加入 Song 2023 论文两步预处理：
+1. Chebyshev 带通滤波 4-40Hz（替换旧版 8-30Hz FIR 滤波）
+2. 逐条 Z-score 归一化
+**未实现:** S&R 数据增强（论文独创，需原作者代码）
+**结果:** 跨被试最佳 **74.9%**（+8.4% vs 无预处理），演示 20 条 **85%**
+**洞见:** 4-40Hz 宽频带 + 归一化是 EEG-Conformer 的关键前提。加上 S&R 后预期接近论文 78.7%。
+
+---
+
+### 改进历程总结（跨被试，同数据同划分）
+
+| 版本 | 预处理 | 模型 | 准确率 |
+|------|--------|------|--------|
+| v1 (05-19) | 无 | EEGNet | 54.2% |
+| v2 (06-03) | 无 | EEGNet | 62.8% |
+| v3 (06-04) | 无 | EEG-Conformer | 70.3% |
+| v4 (06-04) | 无 | EEG-Conformer + label_smoothing | 66.5% |
+| **v5 (06-04)** | **Chebyshev 4-40Hz + Z-score** | **EEG-Conformer + label_smoothing** | **74.9%** 🏆 |
+| 论文 (Song 2023) | Chebyshev + Z-score + S&R | EEG-Conformer | **78.7%** (被试内) |
+
+> 论文 78.7% 是被试内评估（同一人 s0→s1），我们 74.9% 是跨被试（7 人→2 人），难度更高。若转为被试内评估，预期可追平甚至超越论文。
+
+---
+
+### 2026-06-04 — 加论文预处理 (Chebyshev 4-40Hz + Z-score) ✅
+
 ### 2026-06-04 — 修复 Conformer 类别偏向 (label_smoothing=0.1) ✅
 
 **改动:** `test/demo_conformer.py` 加入 `CrossEntropyLoss(label_smoothing=0.1)`。
