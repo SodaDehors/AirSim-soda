@@ -197,20 +197,22 @@ Epoch 26~49: 训练 72%→73%,     测试 25~54%  ← 早停
 
 > **洞见**：Conformer 在跨被试（4032 条）比 EEGNet 高 7.5 个点，但在被试内（288 条）反而不如随机。大参数量模型需要大量数据才能发挥。
 
-### 3.5 评估方式对比（实测数据，最新）
+### 3.5 评估方式对比（实测数据，最新，2026-06-04）
 
-| 评估方式 | 模型 | 训练数据 | 实测准确率 | 意义 |
-|----------|------|---------|-----------|------|
-| 训练集自评 | — | — | 90%+ | 背答案，无意义 |
-| **被试内** | EEGNet | 288 条 | **58.7%（平均）** | 论文可比 |
-| | | | 85.8%（最高, S5） | |
-| **跨被试** | **EEG-Conformer** | 4032 条 | **70.3%** | 🏆 当前最佳 |
-| | EEGNet | 4032 条 | 62.8% | |
-| 随机猜 | — | — | 25% | 底线 |
+| 评估方式 | 模型 | 预处理 | 训练数据 | 实测准确率 | 意义 |
+|----------|------|--------|---------|-----------|------|
+| 训练集自评 | — | — | — | 90%+ | 背答案，无意义 |
+| **被试内** | EEGNet | 无 | 288 条 | **58.7%（平均）** | 论文可比 |
+| | | | | 85.8%（最高, S5） | |
+| **跨被试** | **EEG-Conformer** | **Chebyshev+Z-score** | 4032 条 | **74.9%** | 🏆 当前最佳 |
+| | EEG-Conformer | 无 | 4032 条 | 70.3% | |
+| | EEGNet | 无 | 4032 条 | 62.8% | |
+| 论文 | EEG-Conformer | Chebyshev+Z-score+S&R | 被试内 | 78.7% | Song 2023 |
+| 随机猜 | — | — | — | 25% | 底线 |
 
-> **结论**：跨被试 + EEG-Conformer = 70.3% 是当前最佳结果，已进入论文级别。
+> **结论**：加上论文预处理后，跨被试 Conformer 74.9%，距论文被试内 78.7% 仅差 3.8 个点。转为被试内评估有望追平。
 
-### 3.4 指令映射
+### 3.6 指令映射
 
 ```
     左手动 (class 0)  →  ⬅ 左平移
@@ -294,5 +296,51 @@ d:\miniconda3\envs\airsim\python.exe d:\DevTools\AirSim\Unreal\Environments\Bloc
 # 4. 手动 FPV 飞行 (键盘+鼠标)
 d:\miniconda3\envs\airsim\python.exe d:\DevTools\AirSim\Unreal\Environments\Blocks\fpv_control.py
 ```
+
+---
+
+## 七、参考文献
+
+本项目使用和参考了以下论文与开源代码：
+
+### 核心模型
+
+**[1] EEGNet** — Lawhern VJ, Solon AJ, Waytowich NR, et al.
+*EEGNet: a compact convolutional neural network for EEG-based brain–computer interfaces.*
+Journal of Neural Engineering, 2018.
+→ 基准模型，本项目中首版达到 54.2%、最终版 62.8% 跨被试准确率。
+
+**[2] EEG-Conformer** — Song Y, Zheng Q, Liu B, Gao X.
+*EEG Conformer: Convolutional Transformer for EEG Decoding and Visualization.*
+IEEE Trans. on Neural Systems and Rehabilitation Engineering, Vol. 31, pp. 710–719, 2023.
+DOI: [10.1109/TNSRE.2022.3230250](https://doi.org/10.1109/TNSRE.2022.3230250)
+GitHub: [https://github.com/eeyhsong/EEG-Conformer](https://github.com/eeyhsong/EEG-Conformer)
+→ 当前最佳模型，跨被试 74.9%（接近论文被试内 78.7%）。
+
+**[3] DeepConvNet/ShallowConvNet** — Schirrmeister RT, Springenberg JT, Fiederer LDJ, et al.
+*Deep learning with convolutional neural networks for EEG decoding and visualization.*
+Human Brain Mapping, 2017.
+→ 对比实验中尝试，因数据特性不匹配未采用。
+
+### 数据集
+
+**[4] BCI Competition IV-2a** — Brunner C, Leeb R, Müller-Putz G, Schlögl A, Pfurtscheller G.
+*BCI Competition 2008 – Graz data set A.* 2008.
+MOABB 编号: BNCI2014_001。9 被试 × 4 类运动想象 × 2 session，本项目的全部训练和评估基础。
+
+### 关键技术
+
+**[5] Label Smoothing** — Szegedy C, Vanhoucke V, Ioffe S, Shlens J, Wojna Z.
+*Rethinking the Inception Architecture for Computer Vision.* CVPR 2016.
+→ 抑制 Conformer 类别偏向（偏爱"脚动"），使预测分布更均匀。
+
+### 软件工具
+
+| 工具 | 用途 |
+|------|------|
+| **braindecode** | EEGNetv4 / EEGConformer / Deep4Net 模型实现 + MOABB 数据加载 |
+| **MOABB** (Mother of All BCI Benchmarks) | BCI IV-2a 数据集下载与预处理 |
+| **MNE-Python** | Chebyshev 带通滤波 (4-40Hz) |
+| **PyTorch 2.5.1+cu121** | 训练框架，RTX 4060 GPU 加速 |
 
 ---
